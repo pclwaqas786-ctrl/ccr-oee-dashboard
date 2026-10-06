@@ -9,7 +9,9 @@
   body { background: #0d1220; color: #e8ecf3; font-family: 'Segoe UI', Arial, sans-serif; padding: 18px; }
   .wrap { max-width: 1440px; margin: 0 auto; }
   header.top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
-    background: linear-gradient(90deg, #16213a, #1a2133); border: 1px solid #2a3450; border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
+    background: linear-gradient(90deg, #16213a, #1a2133); border: 1px solid #2a3450; border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; position: relative; overflow: hidden; }
+  header.top::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: linear-gradient(90deg, #4fc3f7, #2dd4bf, #4ade80, #fbbf24, #fb923c, #f87171, #c084fc); }
   header.top h1 { font-size: 22px; letter-spacing: 1.5px; }
   header.top h1 span { color: #4fc3f7; }
   header.top .src { font-size: 12px; color: #8b93a7; margin-top: 4px; }
@@ -24,7 +26,7 @@
   .kpi .label { font-size: 11px; color: #8b93a7; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
   .kpi .value { font-size: 30px; font-weight: 700; }
   .kpi .note { font-size: 12px; color: #8b93a7; margin-top: 4px; }
-  .sec { background: #1a2133; border: 1px solid #2a3450; border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+  .sec { background: #1a2133; border: 1px solid #2a3450; border-top: 3px solid var(--sc, #4fc3f7); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
   .sec h2 { font-size: 15px; letter-spacing: 1px; margin-bottom: 2px; text-transform: uppercase; }
   .sec h2 span { color: #4fc3f7; }
   .sec .desc { font-size: 12px; color: #8b93a7; margin-bottom: 12px; }
@@ -69,7 +71,7 @@
 
     <div class="kpis" id="kpis"></div>
 
-    <div class="sec">
+    <div class="sec" style="--sc:#4fc3f7">
       <h2>Daily <span>&amp;</span> Period-wise — OEE %</h2>
       <div class="desc">Daily OEE trend + period-wise summary (company requirement)</div>
       <div class="grid2">
@@ -79,38 +81,38 @@
     </div>
 
     <div class="grid2">
-      <div class="sec">
+      <div class="sec" style="--sc:#4ade80">
         <h2>Latest Day <span>Summary</span></h2>
         <div class="desc" id="latest_desc"></div>
         <table id="tbl_latest"></table>
       </div>
-      <div class="sec">
+      <div class="sec" style="--sc:#4ade80">
         <h2>Monthly <span>Review</span> (MTD)</h2>
         <div class="desc">Performance • Quality • Availability • OEE</div>
         <div id="gauges"></div>
       </div>
     </div>
 
-    <div class="sec">
+    <div class="sec" style="--sc:#2dd4bf">
       <h2>Daily Production <span>— Planned vs Achieved (MT)</span></h2>
-      <div class="desc">Gray = Planned &nbsp;•&nbsp; Teal = Achieved</div>
+      <div class="desc">Gray = Planned &nbsp;•&nbsp; Achieved: <b class="good">green</b> = plan met / exceeded, <b class="warn">amber</b> = partial, <b class="bad">red</b> = low</div>
       <div id="ch_prod"></div>
     </div>
 
     <div class="grid2">
-      <div class="sec">
+      <div class="sec" style="--sc:#fbbf24">
         <h2>MTD Breakdown <span>— Downtime by Reason</span><span class="badge">⚠ pending verification</span></h2>
         <div class="desc">Factors affecting availability — reason data pending verification (285.5 vs 52.0 hrs)</div>
         <div id="ch_reason"></div>
       </div>
-      <div class="sec">
+      <div class="sec" style="--sc:#fb923c">
         <h2>Breakdown <span>&amp;</span> Trend — Daily Downtime</h2>
         <div class="desc">Daily downtime (hrs) — watch the spikes</div>
         <div id="ch_dt"></div>
       </div>
     </div>
 
-    <div class="sec">
+    <div class="sec" style="--sc:#c084fc">
       <h2>Month-wise <span>Production</span> (FY 2025-26)</h2>
       <div class="desc">Bars = monthly &nbsp;•&nbsp; Dashed line = cumulative</div>
       <div id="ch_monthly"></div>
@@ -256,17 +258,17 @@ function txt(p, x, y, s, size, color, anchor) {
 function render(M) {
   const mtd = M.mtd, bal = mtd.plan - mtd.ach;
   const kpis = [
-    ["MTD Target (MT)", mtd.plan.toFixed(1), "info", "planned production", "#4fc3f7"],
-    ["MTD Achieved (MT)", mtd.ach.toFixed(1), "good", pct(mtd.ach / (mtd.plan || 1)) + " of plan", "#4ade80"],
-    ["Balance (MT)", bal.toFixed(1), "warn", "remaining to target", "#fbbf24"],
-    ["MTD OEE", pct(mtd.oeeP), mtd.oeeP >= .6 ? "good" : "warn", "production days avg", "#4fc3f7"],
-    ["Availability", pct(mtd.availP), "good", "MTD average", "#4ade80"],
-    ["Performance", pct(mtd.perfP), mtd.perfP >= .8 ? "good" : "warn", "achieved / planned", "#fbbf24"],
-    ["Quality", pct(mtd.qualP), "good", "good length", "#4ade80"],
-    ["Downtime", mtd.dtHrs.toFixed(1) + " hrs", "bad", (mtd.dt / 60).toFixed(0) + " min/day avg", "#f87171"],
+    ["MTD Target (MT)", mtd.plan.toFixed(1), "planned production", "#60a5fa"],
+    ["MTD Achieved (MT)", mtd.ach.toFixed(1), pct(mtd.ach / (mtd.plan || 1)) + " of plan", "#4ade80"],
+    ["Balance (MT)", bal.toFixed(1), "remaining to target", "#fbbf24"],
+    ["MTD OEE", pct(mtd.oeeP), "production days avg", "#c084fc"],
+    ["Availability", pct(mtd.availP), "MTD average", "#2dd4bf"],
+    ["Performance", pct(mtd.perfP), "achieved / planned", "#fb923c"],
+    ["Quality", pct(mtd.qualP), "good length", "#a3e635"],
+    ["Downtime", mtd.dtHrs.toFixed(1) + " hrs", (mtd.dt / 60).toFixed(0) + " min/day avg", "#f87171"],
   ];
   document.getElementById('kpis').innerHTML = kpis.map(k =>
-    `<div class="kpi" style="--ac:${k[4]}"><div class="label">${k[0]}</div><div class="value ${k[2]}">${k[1]}</div><div class="note">${k[3]}</div></div>`).join("");
+    `<div class="kpi" style="--ac:${k[3]};background:linear-gradient(135deg,${k[3]}26,#1a2133 65%)"><div class="label">${k[0]}</div><div class="value" style="color:${k[3]}">${k[1]}</div><div class="note">${k[2]}</div></div>`).join("");
 
   // OEE trend line
   (function () {
@@ -277,6 +279,11 @@ function render(M) {
       txt(s, pL - 8, y + 4, Math.round(maxV * 100 * (1 - g / 4)) + "%", 10); }
     let d = "";
     M.daily.forEach((dd, i) => { d += (i ? " L" : "M") + X(i).toFixed(1) + "," + Y(dd.oee).toFixed(1); });
+    const defs = el("defs", {}, s);
+    const lg = el("linearGradient", { id: "oeeArea", x1: "0", y1: "0", x2: "0", y2: "1" }, defs);
+    el("stop", { offset: "0%", "stop-color": "#4fc3f7", "stop-opacity": "0.35" }, lg);
+    el("stop", { offset: "100%", "stop-color": "#4fc3f7", "stop-opacity": "0" }, lg);
+    el("path", { d: d + ` L${X(n - 1).toFixed(1)},${H - pB} L${X(0).toFixed(1)},${H - pB} Z`, fill: "url(#oeeArea)", stroke: "none" }, s);
     el("path", { d: d, fill: "none", stroke: "#4fc3f7", "stroke-width": 2.5 }, s);
     M.daily.forEach((dd, i) => {
       el("circle", { cx: X(i), cy: Y(dd.oee), r: 3.5, fill: "#4fc3f7" }, s);
@@ -313,8 +320,10 @@ function render(M) {
       txt(s, pL - 8, y + 4, Math.round(maxV * (1 - g / 5)), 10); }
     M.daily.forEach((d, i) => {
       const x = pL + i * gw + (gw - 2 * bw) / 2, hgt = H - pB - pT;
-      el("rect", { x: x, y: H - pB - hgt * d.plan / maxV, width: bw, height: Math.max(hgt * d.plan / maxV, 1), fill: "#5b6b8c", rx: 2 }, s);
-      el("rect", { x: x + bw + 3, y: H - pB - hgt * d.ach / maxV, width: bw, height: Math.max(hgt * d.ach / maxV, 1.5), fill: "#2dd4bf", rx: 2 }, s);
+      const r = d.plan > 0 ? d.ach / d.plan : -1;
+      const ac = r < 0 ? "#5b6b8c" : r >= 1 ? "#4ade80" : r >= 0.7 ? "#fbbf24" : "#f87171";
+      el("rect", { x: x, y: H - pB - hgt * d.plan / maxV, width: bw, height: Math.max(hgt * d.plan / maxV, 1), fill: "#3b4763", rx: 2 }, s);
+      el("rect", { x: x + bw + 3, y: H - pB - hgt * d.ach / maxV, width: bw, height: Math.max(hgt * d.ach / maxV, 1.5), fill: ac, rx: 2 }, s);
       if (i % 2 === 0) txt(s, x + bw, H - pB + 16, d.date.getDate() + "/" + (d.date.getMonth() + 1), 9);
     });
     document.getElementById('ch_prod').appendChild(s);
@@ -325,7 +334,7 @@ function render(M) {
     const host = document.getElementById('ch_reason');
     const maxV = Math.max(10, ...M.reasons.map(r => r.hrs));
     host.innerHTML = M.reasons.map(r =>
-      `<div class="bar-row"><span>${r.name}</span><div class="bar-track"><div class="bar-fill" style="width:${(r.hrs / maxV * 100).toFixed(1)}%;background:${r.hrs > 0 ? '#fbbf24' : '#2a3450'}"></div></div><b>${r.hrs.toFixed(1)} h</b></div>`).join("");
+      `<div class="bar-row"><span>${r.name}</span><div class="bar-track"><div class="bar-fill" style="width:${(r.hrs / maxV * 100).toFixed(1)}%;background:${r.hrs > 0 ? 'linear-gradient(90deg,#f59e0b,#fcd34d)' : '#2a3450'}"></div></div><b>${r.hrs.toFixed(1)} h</b></div>`).join("");
   })();
 
   // daily downtime bars
@@ -355,9 +364,13 @@ function render(M) {
       txt(s, pL - 8, y + 4, Math.round(maxB * (1 - g / 3)), 10); }
     const X = i => pL + i * bw + bw / 2;
     const Yb = v => H - pB - (H - pB - pT) * v / maxB, Yc = v => H - pB - (H - pB - pT) * v / maxC;
+    const mdefs = el("defs", {}, s);
+    const mg = el("linearGradient", { id: "mGrad", x1: "0", y1: "0", x2: "0", y2: "1" }, mdefs);
+    el("stop", { offset: "0%", "stop-color": "#4fc3f7" }, mg);
+    el("stop", { offset: "100%", "stop-color": "#2dd4bf" }, mg);
     ms.forEach((t, i) => {
       const x = pL + i * bw + 12, w = Math.max(bw - 24, 8);
-      el("rect", { x: x, y: Yb(t.prod), width: w, height: Math.max(H - pB - Yb(t.prod), 1), fill: "#4fc3f7", rx: 3 }, s);
+      el("rect", { x: x, y: Yb(t.prod), width: w, height: Math.max(H - pB - Yb(t.prod), 1), fill: "url(#mGrad)", rx: 3 }, s);
       if (t.prod > 0) txt(s, x + w / 2, Yb(t.prod) - 8, t.prod.toFixed(0), 11, "#4fc3f7");
       txt(s, x + w / 2, H - pB + 16, t.m, 10);
     });
