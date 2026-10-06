@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CCR Line — Ops Excellence Dashboard (LIVE)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1220; color: #e8ecf3; font-family: 'Segoe UI', Arial, sans-serif; padding: 18px; }
+  .wrap { max-width: 1440px; margin: 0 auto; }
+  header.top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+    background: linear-gradient(90deg, #16213a, #1a2133); border: 1px solid #2a3450; border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
+  header.top h1 { font-size: 22px; letter-spacing: 1.5px; }
+  header.top h1 span { color: #4fc3f7; }
+  header.top .src { font-size: 12px; color: #8b93a7; margin-top: 4px; }
+  .livebar { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #8b93a7; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 8px #4ade80; animation: pulse 2s infinite; }
+  @keyframes pulse { 50% { opacity: .4; } }
+  #refreshBtn { background: #1f6feb; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
+  #refreshBtn:hover { background: #388bfd; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .kpi { background: #1a2133; border: 1px solid #2a3450; border-radius: 10px; padding: 14px 16px; position: relative; overflow: hidden; }
+  .kpi::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--ac, #4fc3f7); }
+  .kpi .label { font-size: 11px; color: #8b93a7; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
+  .kpi .value { font-size: 30px; font-weight: 700; }
+  .kpi .note { font-size: 12px; color: #8b93a7; margin-top: 4px; }
+  .sec { background: #1a2133; border: 1px solid #2a3450; border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+  .sec h2 { font-size: 15px; letter-spacing: 1px; margin-bottom: 2px; text-transform: uppercase; }
+  .sec h2 span { color: #4fc3f7; }
+  .sec .desc { font-size: 12px; color: #8b93a7; margin-bottom: 12px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #2a3450; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: #8b93a7; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; }
+  tr:hover td { background: #222b44; }
+  .badge { display: inline-block; font-size: 11px; background: #3a2b12; color: #fbbf24; border: 1px solid #8a6d2b; padding: 3px 10px; border-radius: 20px; margin-left: 8px; vertical-align: middle; }
+  .good { color: #4ade80; } .warn { color: #fbbf24; } .bad { color: #f87171; } .info { color: #4fc3f7; }
+  .bar-row { display: grid; grid-template-columns: 190px 1fr 90px; align-items: center; gap: 10px; margin: 8px 0; font-size: 13px; }
+  .bar-track { background: #2a3450; border-radius: 6px; height: 18px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 6px; }
+  .target-wrap { margin-top: 12px; }
+  .target-lbl { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+  footer { color: #8b93a7; font-size: 12px; margin-top: 14px; line-height: 1.8; }
+  #loading, #error { text-align: center; padding: 60px 20px; font-size: 16px; color: #8b93a7; }
+  #error { color: #f87171; display: none; }
+  svg text { font-family: 'Segoe UI', Arial, sans-serif; }
+  .scrollx { overflow-x: auto; }
+  @media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, 1fr); } .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>CCR LINE <span>— OPS EXCELLENCE DASHBOARD</span></h1>
+      <div class="src">Source: OEE_Data (Google Sheet) &nbsp;•&nbsp; Company format: Daily &amp; Period-wise</div>
+    </div>
+    <div class="livebar">
+      <span class="dot"></span><span>LIVE</span>
+      <span id="upd">connecting…</span>
+      <button id="refreshBtn">↻ Refresh</button>
+    </div>
+  </header>
+
+  <div id="loading">Sheet se live data aa raha hai…</div>
+  <div id="error">⚠ Sheet se data nahi aa raha. Internet check karo ya thodi der baad Refresh dabao.</div>
+  <div id="dash" style="display:none">
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="sec">
+      <h2>Daily <span>&amp;</span> Period-wise — OEE %</h2>
+      <div class="desc">Roz ka OEE trend + period-wise summary (company requirement)</div>
+      <div class="grid2">
+        <div id="ch_oee"></div>
+        <div><table id="tbl_period"></table></div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="sec">
+        <h2>Latest Day <span>Summary</span></h2>
+        <div class="desc" id="latest_desc"></div>
+        <table id="tbl_latest"></table>
+      </div>
+      <div class="sec">
+        <h2>Monthly <span>Review</span> (MTD)</h2>
+        <div class="desc">Performance • Quality • Availability • OEE</div>
+        <div id="gauges"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>Daily Production <span>— Planned vs Achieved (MT)</span></h2>
+      <div class="desc">Gray = Planned &nbsp;•&nbsp; Teal = Achieved</div>
+      <div id="ch_prod"></div>
+    </div>
+
+    <div class="grid2">
+      <div class="sec">
+        <h2>MTD Breakdown <span>— Downtime by Reason</span><span class="badge">⚠ verify</span></h2>
+        <div class="desc">Factors affecting availability — reason data confirm hona baqi hai (285.5 vs 52.0 hrs)</div>
+        <div id="ch_reason"></div>
+      </div>
+      <div class="sec">
+        <h2>Breakdown <span>&amp;</span> Trend — Daily Downtime</h2>
+        <div class="desc">Roz ka downtime (hrs) — spikes pe tawajjo do</div>
+        <div id="ch_dt"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>Daily <span>Detail</span></h2>
+      <div class="desc">Tamam finalized din</div>
+      <div class="scrollx"><table id="tbl_daily"></table></div>
+    </div>
+
+    <div class="sec">
+      <h2>Month-wise <span>Production</span> (FY 2025-26)</h2>
+      <div class="desc">Bars = monthly &nbsp;•&nbsp; Dashed line = cumulative</div>
+      <div id="ch_monthly"></div>
+      <div class="target-wrap">
+        <div class="target-lbl"><span>Yearly Target progress</span><span id="target_txt"></span></div>
+        <div class="bar-track" style="height:22px"><div class="bar-fill" id="target_bar" style="background:linear-gradient(90deg,#1f6feb,#4fc3f7)"></div></div>
+      </div>
+    </div>
+
+  </div>
+  <footer>
+    Ye dashboard Google Sheet ke <b>OEE_Data</b> tab se live data leta hai — sheet me entry/update karo, yahan 5 minute me khud refresh ho jayega (ya ↻ Refresh dabao).
+    Management ko sirf ye link do; poori sheet dikhane ki zaroorat nahi.
+  </footer>
+</div>
+
+<script>
+"use strict";
+const SHEET_ID = "1hz224h8DB7akltrzjW0oSnP22seTEbr9RmKBnuGiiVw";
+const NS = "http://www.w3.org/2000/svg";
+
+/* ---------- gviz JSONP (CORS-proof) ---------- */
+window.google = { visualization: { Query: { setResponse: onGviz } } };
+function loadSheet() {
+  document.querySelectorAll('script[data-gviz]').forEach(s => s.remove());
+  const s = document.createElement('script');
+  s.dataset.gviz = "1";
+  s.src = "https://docs.google.com/spreadsheets/d/" + SHEET_ID +
+          "/gviz/tq?tqx=out:json&sheet=OEE_Data&ck=" + Date.now();
+  s.onerror = showError;
+  document.head.appendChild(s);
+}
+document.getElementById('refreshBtn').onclick = loadSheet;
+setInterval(loadSheet, 5 * 60 * 1000);
+loadSheet();
+
+function showError() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('error').style.display = 'block';
+}
+
+/* ---------- parsing ---------- */
+function num(v) {
+  if (v === null || v === undefined || v === "") return 0;
+  if (typeof v === "number") return v;
+  let s = String(v).trim().replace(/,/g, "");
+  if (s.endsWith("%")) return parseFloat(s) / 100;
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+const MON = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+function parseDate(v) {
+  if (v === null || v === undefined || v === "") return null;
+  const s = String(v).trim();
+  if (/^\d{4,6}$/.test(s)) {  // sheets serial
+    return new Date(Math.round((Number(s) - 25569) * 86400 * 1000));
+  }
+  const m = s.match(/(\d{1,2})-([A-Za-z]{3})-(\d{2,4})/);
+  if (m) {
+    let y = +m[3]; if (y < 100) y += 2000;
+    return new Date(y, MON[m[2].toLowerCase()], +m[1]);
+  }
+  return null;
+}
+function fmtDate(d) {
+  if (!d) return "–";
+  return d.getDate() + "-" + ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()] + "-" + d.getFullYear();
+}
+function pct(x, d) { return (x * 100).toFixed(d === undefined ? 1 : d) + "%"; }
+
+function onGviz(resp) {
+  try {
+    if (!resp || resp.status !== "ok") return showError();
+    const rows = resp.table.rows.map(r => (r.c || []).map(c => c ? (c.v !== undefined && c.v !== null ? c.v : null) : null));
+    const M = parseModel(rows);
+    render(M);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').style.display = 'none';
+    document.getElementById('dash').style.display = 'block';
+    const now = new Date();
+    document.getElementById('upd').textContent = "updated " + now.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  } catch (e) { console.error(e); showError(); }
+}
+
+function label(row) { return String(row[1] == null ? "" : row[1]).trim(); }
+
+function parseModel(rows) {
+  const M = { daily: [], mtd: {}, reasons: [], trend: [], periods: [], todayDT: [], hours: {}, shifts: [], target: 0 };
+  let section = null;
+  for (const r of rows) {
+    const a = r[0], lab = label(r);
+    // daily rows: col A numeric day serial
+    if (a !== null && a !== "" && !isNaN(Number(a)) && parseDate(r[1])) {
+      const st = String(r[12] || "");
+      M.daily.push({
+        day: +a, date: parseDate(r[1]), avail: num(r[2]), dt: num(r[3]),
+        run: num(r[4]), availP: num(r[5]), plan: num(r[6]), ach: num(r[7]),
+        perfP: num(r[8]), good: num(r[9]), qualP: num(r[10]), oee: num(r[11]),
+        status: st
+      });
+      continue;
+    }
+    if (/^MTD TOTAL/i.test(lab)) {
+      M.mtd = { avail: num(r[2]), dt: num(r[3]), run: num(r[4]), availP: num(r[5]),
+                plan: num(r[6]), ach: num(r[7]), perfP: num(r[8]), qualP: num(r[10]), oeeP: num(r[11]), dtHrs: num(r[13]) };
+      section = null; continue;
+    }
+    if (/^MTD Downtime by Reason/i.test(lab)) { section = "reasons"; continue; }
+    if (/^Yearly Production Trend/i.test(lab)) { section = "trend"; continue; }
+    if (/^Period-wise Summary/i.test(lab)) { section = "periods"; continue; }
+    if (/^Today's Downtime/i.test(lab)) { section = "todayDT"; continue; }
+    if (/^Overall Hours MTD/i.test(lab)) { section = "hours"; continue; }
+    if (/^MTD Production by Shift/i.test(lab)) { section = "shifts"; continue; }
+    if (/^Yearly Target/i.test(lab)) { M.target = num(r[2]); section = null; continue; }
+    if (/^(Total|Period|Day|Date)\b/i.test(lab) && section !== "daily") { continue; }
+    if (lab === "" && section) { continue; }
+    if (section === "reasons" && lab) M.reasons.push({ name: lab, hrs: num(r[2]) });
+    else if (section === "trend" && lab && /-26|-27/i.test(lab)) M.trend.push({ m: lab, prod: num(r[2]), cum: num(r[3]) });
+    else if (section === "periods" && /^Week/i.test(lab))
+      M.periods.push({ p: lab, avail: num(r[2]), perf: num(r[3]), qual: num(r[4]), oee: num(r[5]), plan: num(r[6]), ach: num(r[7]) });
+    else if (section === "todayDT" && lab) M.todayDT.push({ name: lab, v: num(r[2]) });
+    else if (section === "hours" && lab) M.hours[lab] = num(r[2] !== null && r[2] !== "" ? r[2] : r[1]);
+    else if (section === "shifts" && lab) M.shifts.push({ name: lab, v: num(r[2]) });
+    if (lab === "" && (r[2] === null || r[2] === "") && section && !/^Week/i.test(lab)) {
+      // blank separator row ends open-ended sections
+      if (section === "reasons" || section === "todayDT") section = null;
+    }
+  }
+  M.daily = M.daily.filter(d => /final/i.test(d.status));
+  M.daily.sort((x, y) => x.date - y.date);
+  return M;
+}
+
+/* ---------- svg helpers ---------- */
+function el(n, at, p) { const e = document.createElementNS(NS, n); for (const k in at) e.setAttribute(k, at[k]); if (p) p.appendChild(e); return e; }
+function svg(w, h) { const s = document.createElementNS(NS, "svg"); s.setAttribute("viewBox", "0 0 " + w + " " + h); s.setAttribute("width", "100%"); return s; }
+function txt(p, x, y, s, size, color, anchor) {
+  const t = el("text", { x: x, y: y, "font-size": size || 11, fill: color || "#8b93a7", "text-anchor": anchor || "middle" }, p);
+  t.textContent = s;
+}
+
+/* ---------- render ---------- */
+function render(M) {
+  const mtd = M.mtd, bal = mtd.plan - mtd.ach;
+  const kpis = [
+    ["MTD Target (MT)", mtd.plan.toFixed(1), "info", "planned production", "#4fc3f7"],
+    ["MTD Achieved (MT)", mtd.ach.toFixed(1), "good", pct(mtd.ach / (mtd.plan || 1)) + " of plan", "#4ade80"],
+    ["Balance (MT)", bal.toFixed(1), "warn", "remaining to target", "#fbbf24"],
+    ["MTD OEE", pct(mtd.oeeP), mtd.oeeP >= .6 ? "good" : "warn", "production days avg", "#4fc3f7"],
+    ["Availability", pct(mtd.availP), "good", "MTD average", "#4ade80"],
+    ["Performance", pct(mtd.perfP), mtd.perfP >= .8 ? "good" : "warn", "achieved / planned", "#fbbf24"],
+    ["Quality", pct(mtd.qualP), "good", "good length", "#4ade80"],
+    ["Downtime", mtd.dtHrs.toFixed(1) + " hrs", "bad", (mtd.dt / 60).toFixed(0) + " min/day avg", "#f87171"],
+  ];
+  document.getElementById('kpis').innerHTML = kpis.map(k =>
+    `<div class="kpi" style="--ac:${k[4]}"><div class="label">${k[0]}</div><div class="value ${k[2]}">${k[1]}</div><div class="note">${k[3]}</div></div>`).join("");
+
+  // OEE trend line
+  (function () {
+    const W = 560, H = 260, pL = 46, pB = 32, pT = 14, s = svg(W, H), n = M.daily.length, maxV = 1.2;
+    const X = i => pL + i * (W - pL - 12) / Math.max(n - 1, 1), Y = v => pT + (H - pB - pT) * (1 - v / maxV);
+    for (let g = 0; g <= 4; g++) { const y = pT + (H - pB - pT) * g / 4;
+      el("line", { x1: pL, y1: y, x2: W - 6, y2: y, stroke: "#2a3450" }, s);
+      txt(s, pL - 8, y + 4, Math.round(maxV * 100 * (1 - g / 4)) + "%", 10); }
+    let d = "";
+    M.daily.forEach((dd, i) => { d += (i ? " L" : "M") + X(i).toFixed(1) + "," + Y(dd.oee).toFixed(1); });
+    el("path", { d: d, fill: "none", stroke: "#4fc3f7", "stroke-width": 2.5 }, s);
+    M.daily.forEach((dd, i) => {
+      el("circle", { cx: X(i), cy: Y(dd.oee), r: 3.5, fill: "#4fc3f7" }, s);
+      if (i % 2 === 0) txt(s, X(i), H - pB + 16, dd.date.getDate() + "-" + ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][dd.date.getMonth()], 9);
+    });
+    document.getElementById('ch_oee').appendChild(s);
+  })();
+
+  // period-wise table
+  document.getElementById('tbl_period').innerHTML =
+    "<tr><th>Period</th><th>Avail</th><th>Perf</th><th>Qual</th><th>OEE</th><th>Plan</th><th>Ach</th></tr>" +
+    M.periods.map(p => `<tr><td>${p.p}</td><td>${pct(p.avail)}</td><td>${pct(p.perf)}</td><td>${pct(p.qual)}</td><td>${pct(p.oee)}</td><td>${p.plan.toFixed(0)}</td><td>${p.ach.toFixed(1)}</td></tr>`).join("");
+
+  // latest day
+  const L = M.daily[M.daily.length - 1];
+  document.getElementById('latest_desc').textContent = fmtDate(L.date) + " — sab se taaza finalized din";
+  document.getElementById('tbl_latest').innerHTML =
+    `<tr><th>Shift scope</th><th>Planned</th><th>Achieved</th><th>% Ach</th><th>Downtime</th></tr>
+     <tr><td>Full day</td><td>${L.plan.toFixed(1)} MT</td><td>${L.ach.toFixed(1)} MT</td><td>${pct(L.plan ? L.ach / L.plan : 0)}</td><td>${(L.dt / 60).toFixed(1)} hrs</td></tr>
+     <tr><td>Availability</td><td colspan="4">${pct(L.availP)} — run ${(L.run / 60).toFixed(1)} hrs / available ${(L.avail / 60).toFixed(1)} hrs</td></tr>`;
+
+  // monthly review gauges
+  const gauges = [["Performance", mtd.perfP, "#fbbf24"], ["Quality", mtd.qualP, "#4ade80"], ["Availability", mtd.availP, "#4fc3f7"], ["OEE", mtd.oeeP, "#c084fc"]];
+  document.getElementById('gauges').innerHTML = gauges.map(g =>
+    `<div class="bar-row"><span>${g[0]}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.min(g[1] * 100, 100).toFixed(1)}%;background:${g[2]}"></div></div><b class="${g[1] >= .6 ? 'good' : 'warn'}">${pct(g[1])}</b></div>`).join("");
+
+  // planned vs achieved grouped bars
+  (function () {
+    const W = 900, H = 300, pL = 42, pB = 36, pT = 14, s = svg(W, H), n = M.daily.length;
+    const maxV = Math.max(50, ...M.daily.map(d => Math.max(d.plan, d.ach)));
+    const gw = (W - pL - 10) / n, bw = Math.min(20, (gw - 8) / 2);
+    for (let g = 0; g <= 5; g++) { const y = pT + (H - pB - pT) * g / 5;
+      el("line", { x1: pL, y1: y, x2: W - 6, y2: y, stroke: "#2a3450" }, s);
+      txt(s, pL - 8, y + 4, Math.round(maxV * (1 - g / 5)), 10); }
+    M.daily.forEach((d, i) => {
+      const x = pL + i * gw + (gw - 2 * bw) / 2, hgt = H - pB - pT;
+      el("rect", { x: x, y: H - pB - hgt * d.plan / maxV, width: bw, height: Math.max(hgt * d.plan / maxV, 1), fill: "#5b6b8c", rx: 2 }, s);
+      el("rect", { x: x + bw + 3, y: H - pB - hgt * d.ach / maxV, width: bw, height: Math.max(hgt * d.ach / maxV, 1.5), fill: "#2dd4bf", rx: 2 }, s);
+      if (i % 2 === 0) txt(s, x + bw, H - pB + 16, d.date.getDate() + "/" + (d.date.getMonth() + 1), 9);
+    });
+    document.getElementById('ch_prod').appendChild(s);
+  })();
+
+  // downtime by reason
+  (function () {
+    const host = document.getElementById('ch_reason');
+    const maxV = Math.max(10, ...M.reasons.map(r => r.hrs));
+    host.innerHTML = M.reasons.map(r =>
+      `<div class="bar-row"><span>${r.name}</span><div class="bar-track"><div class="bar-fill" style="width:${(r.hrs / maxV * 100).toFixed(1)}%;background:${r.hrs > 0 ? '#fbbf24' : '#2a3450'}"></div></div><b>${r.hrs.toFixed(1)} h</b></div>`).join("");
+  })();
+
+  // daily downtime bars
+  (function () {
+    const W = 560, H = 260, pL = 42, pB = 32, pT = 14, s = svg(W, H), n = M.daily.length;
+    const maxV = Math.max(5, ...M.daily.map(d => d.dt / 60));
+    const bw = (W - pL - 10) / n;
+    for (let g = 0; g <= 4; g++) { const y = pT + (H - pB - pT) * g / 4;
+      el("line", { x1: pL, y1: y, x2: W - 6, y2: y, stroke: "#2a3450" }, s);
+      txt(s, pL - 8, y + 4, (maxV * (1 - g / 4)).toFixed(0) + "h", 10); }
+    M.daily.forEach((d, i) => {
+      const h = (H - pB - pT) * (d.dt / 60) / maxV, x = pL + i * bw + 2;
+      const c = d.dt / 60 >= 10 ? "#f87171" : d.dt > 0 ? "#fbbf24" : "#2a3450";
+      el("rect", { x: x, y: H - pB - h, width: Math.max(bw - 4, 2), height: Math.max(h, 1.5), fill: c, rx: 2 }, s);
+    });
+    document.getElementById('ch_dt').appendChild(s);
+  })();
+
+  // daily detail table
+  document.getElementById('tbl_daily').innerHTML =
+    "<tr><th>Date</th><th>Avail %</th><th>Planned</th><th>Achieved</th><th>Perf %</th><th>OEE %</th><th>DT (hrs)</th><th>Status</th></tr>" +
+    M.daily.map(d => `<tr><td>${fmtDate(d.date)}</td><td>${pct(d.availP)}</td><td>${d.plan.toFixed(1)}</td><td>${d.ach.toFixed(1)}</td><td>${d.plan ? pct(d.ach / d.plan) : "–"}</td><td>${pct(d.oee)}</td><td>${(d.dt / 60).toFixed(1)}</td><td>${d.status}</td></tr>`).join("");
+
+  // monthly production + cumulative
+  (function () {
+    const W = 900, H = 280, pL = 46, pB = 32, pT = 16, s = svg(W, H);
+    const ms = M.trend.filter(t => t.prod > 0 || /-26$/.test(t.m)).slice(0, 12);
+    const maxB = Math.max(100, ...ms.map(t => t.prod)), maxC = Math.max(100, ...ms.map(t => t.cum));
+    const bw = (W - pL - 20) / Math.max(ms.length, 1);
+    for (let g = 0; g <= 3; g++) { const y = pT + (H - pB - pT) * g / 3;
+      el("line", { x1: pL, y1: y, x2: W - 6, y2: y, stroke: "#2a3450" }, s);
+      txt(s, pL - 8, y + 4, Math.round(maxB * (1 - g / 3)), 10); }
+    const X = i => pL + i * bw + bw / 2;
+    const Yb = v => H - pB - (H - pB - pT) * v / maxB, Yc = v => H - pB - (H - pB - pT) * v / maxC;
+    ms.forEach((t, i) => {
+      const x = pL + i * bw + 12, w = Math.max(bw - 24, 8);
+      el("rect", { x: x, y: Yb(t.prod), width: w, height: Math.max(H - pB - Yb(t.prod), 1), fill: "#4fc3f7", rx: 3 }, s);
+      if (t.prod > 0) txt(s, x + w / 2, Yb(t.prod) - 8, t.prod.toFixed(0), 11, "#4fc3f7");
+      txt(s, x + w / 2, H - pB + 16, t.m, 10);
+    });
+    let d = "";
+    ms.forEach((t, i) => { d += (i ? " L" : "M") + X(i).toFixed(1) + "," + Yc(t.cum).toFixed(1); });
+    el("path", { d: d, fill: "none", stroke: "#4ade80", "stroke-width": 2.5, "stroke-dasharray": "6,4" }, s);
+    ms.forEach((t, i) => { el("circle", { cx: X(i), cy: Yc(t.cum), r: 4, fill: "#4ade80" }, s); });
+    document.getElementById('ch_monthly').appendChild(s);
+    const ytd = ms.length ? ms[ms.length - 1].cum : 0;
+    document.getElementById('target_txt').textContent = ytd.toFixed(0) + " / " + M.target.toFixed(0) + " MT (" + pct(M.target ? ytd / M.target : 0) + ")";
+    document.getElementById('target_bar').style.width = (M.target ? Math.min(ytd / M.target * 100, 100) : 0).toFixed(1) + "%";
+  })();
+}
+</script>
+</body>
+</html>
