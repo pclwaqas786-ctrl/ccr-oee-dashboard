@@ -111,12 +111,6 @@
     </div>
 
     <div class="sec">
-      <h2>Daily <span>Detail</span></h2>
-      <div class="desc">Tamam finalized din</div>
-      <div class="scrollx"><table id="tbl_daily"></table></div>
-    </div>
-
-    <div class="sec">
       <h2>Month-wise <span>Production</span> (FY 2025-26)</h2>
       <div class="desc">Bars = monthly &nbsp;•&nbsp; Dashed line = cumulative</div>
       <div id="ch_monthly"></div>
@@ -349,11 +343,6 @@ function render(M) {
     });
     document.getElementById('ch_dt').appendChild(s);
   })();
-
-  // daily detail table
-  document.getElementById('tbl_daily').innerHTML =
-    "<tr><th>Date</th><th>Avail %</th><th>Planned</th><th>Achieved</th><th>Perf %</th><th>OEE %</th><th>DT (hrs)</th><th>Status</th></tr>" +
-    M.daily.map(d => `<tr><td>${fmtDate(d.date)}</td><td>${pct(d.availP)}</td><td>${d.plan.toFixed(1)}</td><td>${d.ach.toFixed(1)}</td><td>${d.plan ? pct(d.ach / d.plan) : "–"}</td><td>${pct(d.oee)}</td><td>${(d.dt / 60).toFixed(1)}</td><td>${d.status}</td></tr>`).join("");
 
   // monthly production + cumulative
   (function () {
