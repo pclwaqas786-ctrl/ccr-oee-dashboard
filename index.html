@@ -124,7 +124,7 @@
 
   </div>
   <footer>
-    This dashboard reads live data from the <b>OEE_Data</b> tab of the Google Sheet — enter or update data in the sheet and it refreshes here automatically within 5 minutes (or press ↻ Refresh).
+    This dashboard reads data from the <b>OEE_Data</b> tab of the Google Sheet — updates appear automatically (live within minutes when the connection works, otherwise within about 30 minutes; press ↻ Refresh anytime).
     Share only this link with management; no need to share the full sheet.
   </footer>
 </div>
@@ -137,28 +137,45 @@ const NS = "http://www.w3.org/2000/svg";
 /* ---------- gviz JSONP (CORS-proof) ---------- */
 window.google = { visualization: { Query: { setResponse: onGviz } } };
 const CACHE_KEY = "ccr_oee_cache_v1";
-let attempts = 0;
 function saveCache(resp) { try { localStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), raw: resp })); } catch (e) {} }
 function loadCache() { try { const c = JSON.parse(localStorage.getItem(CACHE_KEY)); return (c && c.raw) ? c : null; } catch (e) { return null; } }
-function loadSheet() {
-  attempts++;
+/* Primary: baked data.json from the same server — loads instantly, no Google needed */
+function loadBaked() {
+  fetch("data.json?ck=" + Date.now())
+    .then(r => { if (!r.ok) throw new Error("no baked data"); return r.json(); })
+    .then(j => {
+      if (!j || !j.table || !j.table.rows) throw new Error("bad baked data");
+      const resp = { status: "ok", table: j.table };
+      saveCache(resp);
+      renderFromResponse(resp, 0, j.fetched_at);
+    })
+    .catch(() => {
+      const c = loadCache();
+      if (c) renderFromResponse(c.raw, c.t, 0);
+      else showError();
+    });
+}
+/* Background: live gviz for extra freshness — silent if unreachable */
+function loadLive() {
   document.querySelectorAll('script[data-gviz]').forEach(s => s.remove());
   const s = document.createElement('script');
   s.dataset.gviz = "1";
   s.src = "https://docs.google.com/spreadsheets/d/" + SHEET_ID +
           "/gviz/tq?tqx=out:json&sheet=OEE_Data&ck=" + Date.now();
-  s.onerror = handleFail;
   document.head.appendChild(s);
+  setTimeout(() => { s.remove(); }, 25000);  // hang guard — stays silent
 }
-function handleFail() {
-  if (attempts < 3) { setTimeout(loadSheet, 4000); return; }  // auto-retry x3
-  const c = loadCache();
-  if (c) { renderFromResponse(c.raw, c.t); }  // fall back to last saved data
-  else showError();
+function onGviz(resp) {
+  try {
+    if (!resp || resp.status !== "ok") return;
+    saveCache(resp);
+    renderFromResponse(resp, 0, 0);
+  } catch (e) { console.error(e); }
 }
-document.getElementById('refreshBtn').onclick = () => { attempts = 0; document.getElementById('cacheNotice').style.display = 'none'; loadSheet(); };
-setInterval(() => { attempts = 0; loadSheet(); }, 5 * 60 * 1000);
-loadSheet();
+document.getElementById('refreshBtn').onclick = () => { document.getElementById('cacheNotice').style.display = 'none'; document.getElementById('error').style.display = 'none'; loadBaked(); loadLive(); };
+loadBaked();
+loadLive();
+setInterval(() => { loadBaked(); loadLive(); }, 5 * 60 * 1000);
 
 function showError() {
   document.getElementById('loading').style.display = 'none';
@@ -194,28 +211,22 @@ function fmtDate(d) {
 }
 function pct(x, d) { return (x * 100).toFixed(d === undefined ? 1 : d) + "%"; }
 
-function onGviz(resp) {
-  try {
-    if (!resp || resp.status !== "ok") return handleFail();
-    attempts = 0;
-    saveCache(resp);
-    renderFromResponse(resp, 0);
-  } catch (e) { console.error(e); handleFail(); }
-}
-function renderFromResponse(resp, cachedTime) {
+
+function renderFromResponse(resp, cachedTime, bakedTime) {
   const rows = resp.table.rows.map(r => (r.c || []).map(c => c ? (c.v !== undefined && c.v !== null ? c.v : null) : null));
   const M = parseModel(rows);
   render(M);
   document.getElementById('loading').style.display = 'none';
   document.getElementById('error').style.display = 'none';
   document.getElementById('dash').style.display = 'block';
-  const t = cachedTime ? new Date(cachedTime) : new Date();
+  const t = bakedTime ? new Date(bakedTime) : cachedTime ? new Date(cachedTime) : new Date();
   const tstr = t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  document.getElementById('upd').textContent = (cachedTime ? "cached " : "updated ") + tstr;
+  const dstr = t.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  document.getElementById('upd').textContent = (cachedTime && !bakedTime ? "cached " : "updated ") + dstr + " " + tstr;
   const nc = document.getElementById('cacheNotice');
-  if (cachedTime) {
+  if (cachedTime && !bakedTime) {
     nc.style.display = 'block';
-    nc.textContent = "Showing saved data from " + t.toLocaleDateString('en-GB') + " " + tstr + " — live update failed. Press Refresh to retry.";
+    nc.textContent = "Showing saved data from " + dstr + " " + tstr + " — live update failed. Press Refresh to retry.";
   } else {
     nc.style.display = 'none';
   }
