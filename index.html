@@ -66,6 +66,7 @@
 
   <div id="loading">Loading live data from sheet…</div>
   <div id="error">⚠ Could not load data from the sheet. Check your internet connection or press Refresh.</div>
+  <div id="cacheNotice" style="display:none;background:#fef3c7;border:1px solid #d97706;color:#92400e;border-radius:10px;padding:10px 16px;margin-bottom:16px;font-size:13px;"></div>
   <div id="dash" style="display:none">
 
     <div class="kpis" id="kpis"></div>
@@ -135,17 +136,28 @@ const NS = "http://www.w3.org/2000/svg";
 
 /* ---------- gviz JSONP (CORS-proof) ---------- */
 window.google = { visualization: { Query: { setResponse: onGviz } } };
+const CACHE_KEY = "ccr_oee_cache_v1";
+let attempts = 0;
+function saveCache(resp) { try { localStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), raw: resp })); } catch (e) {} }
+function loadCache() { try { const c = JSON.parse(localStorage.getItem(CACHE_KEY)); return (c && c.raw) ? c : null; } catch (e) { return null; } }
 function loadSheet() {
+  attempts++;
   document.querySelectorAll('script[data-gviz]').forEach(s => s.remove());
   const s = document.createElement('script');
   s.dataset.gviz = "1";
   s.src = "https://docs.google.com/spreadsheets/d/" + SHEET_ID +
           "/gviz/tq?tqx=out:json&sheet=OEE_Data&ck=" + Date.now();
-  s.onerror = showError;
+  s.onerror = handleFail;
   document.head.appendChild(s);
 }
-document.getElementById('refreshBtn').onclick = loadSheet;
-setInterval(loadSheet, 5 * 60 * 1000);
+function handleFail() {
+  if (attempts < 3) { setTimeout(loadSheet, 4000); return; }  // auto-retry x3
+  const c = loadCache();
+  if (c) { renderFromResponse(c.raw, c.t); }  // fall back to last saved data
+  else showError();
+}
+document.getElementById('refreshBtn').onclick = () => { attempts = 0; document.getElementById('cacheNotice').style.display = 'none'; loadSheet(); };
+setInterval(() => { attempts = 0; loadSheet(); }, 5 * 60 * 1000);
 loadSheet();
 
 function showError() {
@@ -184,16 +196,29 @@ function pct(x, d) { return (x * 100).toFixed(d === undefined ? 1 : d) + "%"; }
 
 function onGviz(resp) {
   try {
-    if (!resp || resp.status !== "ok") return showError();
-    const rows = resp.table.rows.map(r => (r.c || []).map(c => c ? (c.v !== undefined && c.v !== null ? c.v : null) : null));
-    const M = parseModel(rows);
-    render(M);
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('error').style.display = 'none';
-    document.getElementById('dash').style.display = 'block';
-    const now = new Date();
-    document.getElementById('upd').textContent = "updated " + now.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  } catch (e) { console.error(e); showError(); }
+    if (!resp || resp.status !== "ok") return handleFail();
+    attempts = 0;
+    saveCache(resp);
+    renderFromResponse(resp, 0);
+  } catch (e) { console.error(e); handleFail(); }
+}
+function renderFromResponse(resp, cachedTime) {
+  const rows = resp.table.rows.map(r => (r.c || []).map(c => c ? (c.v !== undefined && c.v !== null ? c.v : null) : null));
+  const M = parseModel(rows);
+  render(M);
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('error').style.display = 'none';
+  document.getElementById('dash').style.display = 'block';
+  const t = cachedTime ? new Date(cachedTime) : new Date();
+  const tstr = t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  document.getElementById('upd').textContent = (cachedTime ? "cached " : "updated ") + tstr;
+  const nc = document.getElementById('cacheNotice');
+  if (cachedTime) {
+    nc.style.display = 'block';
+    nc.textContent = "Showing saved data from " + t.toLocaleDateString('en-GB') + " " + tstr + " — live update failed. Press Refresh to retry.";
+  } else {
+    nc.style.display = 'none';
+  }
 }
 
 function label(row) { return String(row[1] == null ? "" : row[1]).trim(); }
